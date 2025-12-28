@@ -1,0 +1,764 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>CRASH CITY - FINAL</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Roboto:wght@400;700&display=swap');
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: 'Roboto', sans-serif;
+            user-select: none;
+        }
+
+        .center-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        /* 로그인 화면 */
+        #login-screen {
+            background: white;
+            z-index: 200;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Black Ops One', cursive;
+            font-size: 80px;
+            margin: 0 0 20px 0;
+            letter-spacing: 5px;
+        }
+
+        input {
+            padding: 15px;
+            font-size: 24px;
+            border: 4px solid #000;
+            outline: none;
+            text-align: center;
+            width: 400px;
+            font-family: 'Black Ops One', cursive;
+            text-transform: uppercase;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 15px 50px;
+            font-size: 24px;
+            background: #000;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-family: 'Black Ops One', cursive;
+            transition: 0.2s;
+        }
+
+            button:hover {
+                background: #333;
+                transform: scale(1.05);
+            }
+
+        .legal-notice {
+            margin-top: 40px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+            font-size: 11px;
+            color: #555;
+            width: 600px;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        .warning-red {
+            color: #ff0000;
+            font-weight: bold;
+        }
+
+        .controls-info {
+            margin-top: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .key {
+            background: #eee;
+            border: 1px solid #ccc;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* 게임 오버 화면 */
+        #game-over-screen {
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            color: white;
+        }
+
+        #game-over-title {
+            font-family: 'Black Ops One', cursive;
+            font-size: 100px;
+            color: #ff3333;
+            margin-bottom: 20px;
+        }
+
+        #final-score {
+            font-size: 30px;
+            margin-bottom: 40px;
+        }
+
+        #restart-btn {
+            background: #ff3333;
+            border: 4px solid white;
+            color: white;
+            padding: 15px 40px;
+            font-size: 20px;
+            cursor: pointer;
+            font-family: 'Black Ops One', cursive;
+        }
+
+            #restart-btn:hover {
+                background: white;
+                color: #ff3333;
+            }
+
+        /* HUD */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #timer {
+            font-family: 'Black Ops One', cursive;
+            font-size: 50px;
+            color: #000;
+            text-shadow: 2px 2px 0px #fff;
+        }
+
+        #hp-bar {
+            font-size: 40px;
+            color: #ff3333;
+            margin-top: 5px;
+            text-shadow: 2px 2px 0px #fff;
+        }
+
+        #boost-container {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 12px;
+            border: 3px solid #000;
+            background: #fff;
+            pointer-events: none;
+            z-index: 10;
+            transform: skewX(-20deg);
+        }
+
+        #boost-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #00aaff;
+            transition: width 0.1s linear;
+        }
+
+        #boost-text {
+            position: absolute;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Black Ops One', cursive;
+            font-size: 20px;
+            color: #00aaff;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        #leaderboard {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 3px solid #000;
+            padding: 15px;
+            width: 220px;
+            z-index: 10;
+            text-align: left;
+            pointer-events: none;
+            box-shadow: 5px 5px 0px #000;
+        }
+
+            #leaderboard h3 {
+                margin: 0 0 10px 0;
+                font-family: 'Black Ops One', cursive;
+                font-size: 20px;
+                text-align: center;
+                border-bottom: 2px solid #000;
+                padding-bottom: 5px;
+            }
+
+            #leaderboard ol {
+                margin: 0;
+                padding-left: 25px;
+                font-weight: bold;
+                font-size: 14px;
+            }
+
+            #leaderboard li {
+                margin-bottom: 5px;
+            }
+
+        #footer {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 11px;
+            color: #888;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="login-screen" class="center-screen">
+        <h1>CRASH CITY</h1>
+        <input type="text" id="nicknameInput" placeholder="NICKNAME" maxlength="10"
+               onkeydown="if(event.key === 'Enter') startGame()">
+        <button onclick="startGame()">ENTER WORLD</button>
+
+        <div class="controls-info">
+            <span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> Drive &nbsp;|&nbsp; <span class="key">SPACE</span> Dash
+        </div>
+
+        <div class="legal-notice">
+            <p class="warning-red">⚠️ EPILEPSY WARNING: Contains flashing lights.</p>
+            <p><strong>Privacy Policy:</strong> We do not store any personal data. Nicknames are temporary and deleted upon disconnection.</p>
+            <p><strong>Safety:</strong> Profanity filter is active. This game is an AI-assisted fan project for entertainment purposes.</p>
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="center-screen">
+        <div id="game-over-title">WASHED OUT</div>
+        <div id="final-score">SURVIVED: 00:00:00</div>
+        <button id="restart-btn" onclick="location.reload()">RESTART ENGINE</button>
+    </div>
+
+    <div id="ui-layer">
+        <div id="timer">00:00:00</div>
+        <div id="hp-bar">♥♥♥♥♥</div>
+    </div>
+
+    <div id="boost-text">BOOST READY</div>
+    <div id="boost-container"><div id="boost-bar"></div></div>
+
+    <div id="leaderboard">
+        <h3>HALL OF FAME</h3>
+        <ol id="rank-list">
+            <li>-</li>
+            <li>-</li>
+            <li>-</li>
+            <li>-</li>
+            <li>-</li>
+        </ol>
+    </div>
+
+    <div id="footer">
+        <p>© 2025 Crash City. Powered by Node.js & Three.js. No Copyright Infringement Intended.</p>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        const socket = io();
+        let scene, camera, renderer, floor;
+        let myCar, myCarData = { speed: 0, rot: 0, isHit: false, isStunned: false, canDash: true, isDashing: false, dashEndTime: 0, dashCooldownTime: 0 };
+        let otherPlayers = {};
+        let buildingBBs = [];
+        let myCarBB;
+        let mapDataReceived = false;
+        let particles = [];
+        let startTime, timerInterval;
+        let isGameRunning = false;
+        const MAP_SIZE = 2000;
+        const MAP_HALF = 1000;
+
+        // 사운드 로드
+        const sfxEngine = new Audio('sounds/engine.mp3');
+        sfxEngine.loop = true;
+        sfxEngine.volume = 0.3;
+
+        const sfxBoost = new Audio('sounds/boost.mp3');
+        sfxBoost.volume = 0.6;
+
+        const sfxCrash = new Audio('sounds/crash.mp3');
+        sfxCrash.volume = 0.8;
+
+        // [신규] 문 열리는 소리 로드
+        const sfxDoor = new Audio('sounds/door_open.mp3');
+        sfxDoor.volume = 1.0;
+
+        function playCrashSound() {
+        if (sfxCrash.paused || sfxCrash.currentTime > 0.1) {
+        sfxCrash.currentTime = 0;
+        sfxCrash.play().catch(()=>{});
+        }
+        }
+
+        socket.on('mapData', (buildingsData) => {
+        if(mapDataReceived) return;
+        window.serverBuildings = buildingsData;
+        mapDataReceived = true;
+        });
+
+        socket.on('updateRankings', (highScores) => {
+        const list = document.getElementById('rank-list');
+        list.innerHTML = '';
+        if (highScores.length === 0) {
+        list.innerHTML = '<li>No Records Yet</li>';
+        } else {
+        highScores.forEach(score => {
+        const li = document.createElement('li');
+        const timeSec = (score.time / 1000).toFixed(2);
+        li.innerText = `${score.name} : ${timeSec}s`;
+        list.appendChild(li);
+        });
+        }
+        });
+
+        function startGame() {
+        const nicknameInput = document.getElementById('nicknameInput');
+        const name = nicknameInput.value;
+        if(!name) return alert("Please enter a name.");
+        if (!/^[a-zA-Z0-9]+$/.test(name)) {
+        alert("English & Numbers only.");
+        nicknameInput.focus(); return;
+        }
+        if(!mapDataReceived) {
+        alert("Loading map data... try again."); return;
+        }
+
+        // [신규] 문 열리는 소리 재생 후 게임 화면으로 전환
+        sfxDoor.play().catch(e => console.log("Door sound failed: ", e));
+        sfxEngine.play().catch(e => console.log("Engine sound failed: ", e));
+
+        document.getElementById('login-screen').style.display = 'none';
+
+        socket.emit('joinGame', name);
+        initGame();
+        isGameRunning = true;
+        startTime = Date.now();
+        updateTimer();
+        }
+
+        function updateTimer() {
+        if (!isGameRunning) return;
+        const diff = Date.now() - startTime;
+        const min = String(Math.floor(diff/60000)).padStart(2,'0');
+        const sec = String(Math.floor((diff%60000)/1000)).padStart(2,'0');
+        const ms = String(Math.floor((diff%1000)/10)).padStart(2,'0');
+        document.getElementById('timer').innerText = `${min}:${sec}:${ms}`;
+        requestAnimationFrame(updateTimer);
+        }
+
+        function initGame() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+        scene.fog = new THREE.Fog(0xffffff, 800, 1500);
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        const light = new THREE.DirectionalLight(0xffffff, 0.8);
+        light.position.set(100, 200, 100);
+        light.castShadow = true;
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+        floor.rotation.x = -Math.PI / 2;
+        floor.receiveShadow = true;
+        scene.add(floor);
+        const buildingMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+        if (window.serverBuildings) {
+        const offsets = [{x:0, z:0}, {x:MAP_SIZE, z:0}, {x:-MAP_SIZE, z:0}, {x:0, z:MAP_SIZE}, {x:0, z:-MAP_SIZE}, {x:MAP_SIZE, z:MAP_SIZE}, {x:MAP_SIZE, z:-MAP_SIZE}, {x:-MAP_SIZE, z:MAP_SIZE}, {x:-MAP_SIZE, z:-MAP_SIZE}];
+        window.serverBuildings.forEach(data => {
+        const geometry = new THREE.BoxGeometry(data.w, data.h, data.d);
+        offsets.forEach(offset => {
+        const building = new THREE.Mesh(geometry, buildingMat);
+        building.position.set(data.x + offset.x, data.y, data.z + offset.z);
+        building.castShadow = true;
+        building.receiveShadow = true;
+        scene.add(building);
+        if (offset.x === 0 && offset.z === 0) {
+        const bb = new THREE.Box3().setFromObject(building).expandByScalar(-0.5);
+        buildingBBs.push(bb);
+        }
+        });
+        });
+        }
+        myCarBB = new THREE.Box3();
+        }
+
+        function createExplosion(x, z, colorHex) {
+        const particleCount = 30;
+        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const material = new THREE.MeshStandardMaterial({ color: colorHex || 0xff3333 });
+        for (let i = 0; i < particleCount; i++) {
+        const particle = new THREE.Mesh(geometry, material);
+        particle.position.set(x, 1, z);
+        particle.userData = { velX: (Math.random() - 0.5) * 2, velY: Math.random() * 2 + 1, velZ: (Math.random() - 0.5) * 2, rotX: Math.random() * 0.2, rotY: Math.random() * 0.2 };
+        scene.add(particle);
+        particles.push(particle);
+        }
+        }
+
+        function createNameSprite(name, isBot) {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 512; canvas.height = 128;
+        context.font = "Bold 60px Arial, sans-serif";
+        context.fillStyle = isBot ? "#888888" : "black";
+        context.textAlign = "center";
+        context.fillText(name, canvas.width / 2, canvas.height / 2 + 20);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(8, 2, 1);
+        return sprite;
+        }
+
+        function createCar(color, isMine, name, spec) {
+        const carGroup = new THREE.Group();
+        const mainMaterial = new THREE.MeshStandardMaterial({ color: color || 0x333333, roughness: 0.3, metalness: 0.1 });
+        const s = spec || { type: 0, cW: 4, cH: 2, cD: 8, tW: 3, tH: 1.5, tD: 4 };
+        const wheelRadius = 0.8;
+        const wheelY = wheelRadius;
+        const bodyGeo = new THREE.BoxGeometry(s.cW, s.cH, s.cD);
+        const body = new THREE.Mesh(bodyGeo, mainMaterial);
+        body.castShadow = true;
+        let chassisCenterY = wheelY + (s.cH / 2) - 0.2;
+        body.position.y = chassisCenterY;
+        body.userData.origColor = body.material.color.getHex();
+        carGroup.add(body);
+        const cabinGeo = new THREE.BoxGeometry(s.tW, s.tH, s.tD);
+        const cabinMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+        const cabinY = chassisCenterY + (s.cH / 2) + (s.tH / 2) - 0.1;
+        cabin.position.set(0, cabinY, -s.cD * 0.1);
+        carGroup.add(cabin);
+        const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, 0.5, 24);
+        const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const wheelX = s.cW / 2 + 0.1;
+        const wheelZ = s.cD / 3.5;
+        const wheelPositions = [ { x: -wheelX, z: wheelZ }, { x: wheelX, z: wheelZ }, { x: -wheelX, z: -wheelZ }, { x: wheelX, z: -wheelZ } ];
+        wheelPositions.forEach(pos => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(pos.x, wheelY, pos.z);
+        carGroup.add(wheel);
+        });
+        if (name) {
+        const isBot = name.startsWith("AI-") || !name.match(/[a-z]/);
+        const nameSprite = createNameSprite(name, isBot);
+        nameSprite.position.y = chassisCenterY + (s.cH/2) + s.tH + 2;
+        carGroup.add(nameSprite);
+        }
+        scene.add(carGroup);
+        return { mesh: carGroup, bodyMesh: body };
+        }
+
+        socket.on('currentPlayers', (players) => {
+        Object.keys(players).forEach(id => {
+        const isMe = (id === socket.id);
+        if (!otherPlayers[id] && !isMe) {
+        const carObj = createCar(players[id].color, false, players[id].name, players[id].carSpec);
+        otherPlayers[id] = carObj.mesh;
+        otherPlayers[id].body = carObj.bodyMesh;
+        otherPlayers[id].position.set(players[id].x, 0, players[id].z);
+        otherPlayers[id].targetX = players[id].x;
+        otherPlayers[id].targetZ = players[id].z;
+        otherPlayers[id].targetRot = players[id].rotation;
+        }
+        if(isMe && !myCar) {
+        const carObj = createCar(players[id].color, isMe, players[id].name, players[id].carSpec);
+        myCar = carObj.mesh;
+        myCar.body = carObj.bodyMesh;
+        myCar.position.set(players[id].x, 0, players[id].z);
+        }
+        });
+        });
+
+        socket.on('newPlayer', (data) => {
+        if(myCar && data.id === socket.id) return;
+        const carObj = createCar(data.playerInfo.color, false, data.playerInfo.name, data.playerInfo.carSpec);
+        otherPlayers[data.id] = carObj.mesh;
+        otherPlayers[data.id].body = carObj.bodyMesh;
+        otherPlayers[data.id].position.set(data.playerInfo.x, 0, data.playerInfo.z);
+        otherPlayers[data.id].targetX = data.playerInfo.x;
+        otherPlayers[data.id].targetZ = data.playerInfo.z;
+        otherPlayers[data.id].targetRot = data.playerInfo.rotation;
+        });
+
+        socket.on('playerMoved', (data) => {
+        if(otherPlayers[data.id]) {
+        const target = otherPlayers[data.id];
+        target.targetX = data.playerInfo.x;
+        target.targetZ = data.playerInfo.z;
+        target.targetRot = data.playerInfo.rotation;
+        }
+        });
+
+        socket.on('removePlayer', (id) => {
+        if(otherPlayers[id]) {
+        scene.remove(otherPlayers[id]);
+        delete otherPlayers[id];
+        }
+        });
+
+        socket.on('updateHealth', (data) => {
+        if (data.id === socket.id) {
+        if (data.hp < document.getElementById('hp-bar').innerText.length) {
+        playCrashSound();
+        }
+        let hearts = "";
+        for(let i=0; i<data.hp; i++) hearts += "♥";
+        document.getElementById('hp-bar').innerText = hearts;
+        }
+        let target = (data.id === socket.id) ? myCar : otherPlayers[data.id];
+        if(target && target.body) {
+        target.body.material.color.setHex(0xff0000);
+        setTimeout(() => {
+        if (target && target.body) {
+        target.body.material.color.setHex(target.body.userData.origColor);
+        }
+        }, 200);
+        }
+        });
+
+        socket.on('forcePush', (data) => {
+        if(myCar) {
+        const pushX = Math.sin(data.angle) * data.force;
+        const pushZ = Math.cos(data.angle) * data.force;
+        myCar.position.x += pushX;
+        myCar.position.z += pushZ;
+        myCar.position.y = 1;
+        setTimeout(() => myCar.position.y = 0, 200);
+        if (!myCarData.isStunned) {
+        myCarData.isStunned = true;
+        myCarData.isHit = true;
+        setTimeout(() => { myCarData.isStunned = false; }, 500);
+        setTimeout(() => { myCarData.isHit = false; }, 1000);
+        }
+        }
+        });
+
+        socket.on('playerDied', (id) => {
+        let target = (id === socket.id) ? myCar : otherPlayers[id];
+        if (target) {
+        createExplosion(target.position.x, target.position.z, target.body.material.color.getHex());
+        playCrashSound();
+        }
+        if(id === socket.id) {
+        isGameRunning = false;
+        sfxEngine.pause();
+        scene.remove(myCar);
+        document.getElementById('game-over-screen').style.display = 'flex';
+        document.getElementById('final-score').innerText = "SURVIVED: " + document.getElementById('timer').innerText;
+        document.getElementById('ui-layer').style.display = 'none';
+        } else if (otherPlayers[id]) {
+        scene.remove(otherPlayers[id]);
+        delete otherPlayers[id];
+        }
+        });
+
+        const keys = { w:false, a:false, s:false, d:false, space: false };
+        window.addEventListener('keydown', e => {
+        if(e.code === 'Space') keys.space = true;
+        else keys[e.key] = true;
+        });
+        window.addEventListener('keyup', e => {
+        if(e.code === 'Space') keys.space = false;
+        else keys[e.key] = false;
+        });
+
+        function checkCollision(tempPos) {
+        const min = new THREE.Vector3(tempPos.x - 1.8, 0, tempPos.z - 3.8);
+        const max = new THREE.Vector3(tempPos.x + 1.8, 5, tempPos.z + 3.8);
+        myCarBB.set(min, max);
+        for (let i = 0; i < buildingBBs.length; i++) {
+        if (myCarBB.intersectsBox(buildingBBs[i])) return true;
+        }
+        for (let id in otherPlayers) {
+        const other = otherPlayers[id];
+        if (!other) continue;
+        let dx = Math.abs(tempPos.x - other.position.x);
+        let dz = Math.abs(tempPos.z - other.position.z);
+        if(dx > MAP_HALF) dx = MAP_SIZE - dx;
+        if(dz > MAP_HALF) dz = MAP_SIZE - dz;
+        const dist = Math.sqrt(dx*dx + dz*dz);
+        if (dist < 12) return true;
+        }
+        return false;
+        }
+
+        function animate() {
+        requestAnimationFrame(animate);
+        for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.position.x += p.userData.velX;
+        p.position.y += p.userData.velY;
+        p.position.z += p.userData.velZ;
+        p.rotation.x += p.userData.rotX;
+        p.rotation.y += p.userData.rotY;
+        p.userData.velY -= 0.1;
+        if (p.position.y < 0) {
+        scene.remove(p);
+        particles.splice(i, 1);
+        }
+        }
+        if (isGameRunning && myCarData) {
+        const now = Date.now();
+        const boostBar = document.getElementById('boost-bar');
+        const boostText = document.getElementById('boost-text');
+        if (keys.space && myCarData.canDash && !myCarData.isStunned) {
+        myCarData.isDashing = true;
+        myCarData.canDash = false;
+        myCarData.dashEndTime = now + 500;
+        myCarData.dashCooldownTime = now + 5500;
+
+        sfxBoost.currentTime = 0;
+        sfxBoost.play().catch(()=>{});
+        }
+        if (myCarData.isDashing && now > myCarData.dashEndTime) {
+        myCarData.isDashing = false;
+        }
+        if (!myCarData.canDash && now > myCarData.dashCooldownTime) {
+        myCarData.canDash = true;
+        }
+        if (myCarData.canDash) {
+        boostBar.style.width = '100%';
+        boostBar.style.backgroundColor = '#00aaff';
+        boostText.innerText = "BOOST READY (SPACE)";
+        boostText.style.color = "#00aaff";
+        } else if (myCarData.isDashing) {
+        boostBar.style.width = '100%';
+        boostBar.style.backgroundColor = '#ffcc00';
+        boostText.innerText = "BOOSTING!";
+        boostText.style.color = "#ffcc00";
+        } else {
+        const remaining = myCarData.dashCooldownTime - now;
+        const percent = 100 - (remaining / 5000 * 100);
+        boostBar.style.width = `${Math.max(0, percent)}%`;
+        boostBar.style.backgroundColor = '#555';
+        boostText.innerText = "RECHARGING...";
+        boostText.style.color = "#555";
+        }
+        }
+        if(myCar) {
+        for(let id in otherPlayers) {
+        let p = otherPlayers[id];
+        if(p.targetX !== undefined) {
+        let targetX = p.targetX;
+        let targetZ = p.targetZ;
+        const dx = targetX - myCar.position.x;
+        const dz = targetZ - myCar.position.z;
+        if (dx > MAP_HALF) targetX -= MAP_SIZE;
+        else if (dx < -MAP_HALF) targetX += MAP_SIZE;
+        if (dz > MAP_HALF) targetZ -= MAP_SIZE;
+        else if (dz < -MAP_HALF) targetZ += MAP_SIZE;
+        if (Math.abs(targetX - p.position.x) > MAP_HALF) {
+        if(targetX > p.position.x) p.position.x += MAP_SIZE;
+        else p.position.x -= MAP_SIZE;
+        }
+        if (Math.abs(targetZ - p.position.z) > MAP_HALF) {
+        if(targetZ > p.position.z) p.position.z += MAP_SIZE;
+        else p.position.z -= MAP_SIZE;
+        }
+        p.position.x += (targetX - p.position.x) * 0.1;
+        p.position.z += (targetZ - p.position.z) * 0.1;
+        p.rotation.y = p.targetRot;
+        }
+        }
+        }
+        if(!myCar || !isGameRunning) {
+        renderer.render(scene, camera);
+        return;
+        }
+        if (!myCarData.isStunned) {
+        let currentMaxSpeed = myCarData.isDashing ? 0.8 : 0.4;
+        if(keys.w) myCarData.speed = currentMaxSpeed;
+        else if(keys.s) myCarData.speed = -0.3;
+        else myCarData.speed *= 0.95;
+        let turnSpeed = myCarData.isDashing ? 0.03 : 0.05;
+        if(keys.a) myCarData.rot += turnSpeed;
+        if(keys.d) myCarData.rot -= turnSpeed;
+        } else {
+        myCarData.speed *= 0.95;
+        }
+        const nextX = myCar.position.x - Math.sin(myCarData.rot) * myCarData.speed;
+        const nextZ = myCar.position.z - Math.cos(myCarData.rot) * myCarData.speed;
+        if (checkCollision({ x: nextX, z: nextZ })) {
+        myCarData.speed = -myCarData.speed * 0.8;
+        if (!myCarData.isHit) {
+        socket.emit('playerHit');
+        myCarData.isHit = true;
+
+        // 내가 박았을 때도 소리 재생
+        playCrashSound();
+
+        setTimeout(() => { myCarData.isHit = false; }, 500);
+        }
+        } else {
+        myCar.position.x = nextX;
+        myCar.position.z = nextZ;
+        if (myCar.position.x > MAP_HALF) myCar.position.x -= MAP_SIZE;
+        else if (myCar.position.x < -MAP_HALF) myCar.position.x += MAP_SIZE;
+        if (myCar.position.z > MAP_HALF) myCar.position.z -= MAP_SIZE;
+        else if (myCar.position.z < -MAP_HALF) myCar.position.z += MAP_SIZE;
+        if (floor) {
+        floor.position.x = myCar.position.x;
+        floor.position.z = myCar.position.z;
+        }
+        }
+        myCar.rotation.y = myCarData.rot;
+        camera.position.set(
+        myCar.position.x + Math.sin(myCarData.rot + Math.PI) * -20,
+        10,
+        myCar.position.z + Math.cos(myCarData.rot + Math.PI) * -20
+        );
+        camera.lookAt(myCar.position);
+        socket.emit('playerMovement', {
+        x: myCar.position.x,
+        z: myCar.position.z,
+        rotation: myCarData.rot
+        });
+        renderer.render(scene, camera);
+        }
+        animate();
+        window.addEventListener('resize', () => {
+        if(camera) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        });
+    </script>
+</body>
+</html>

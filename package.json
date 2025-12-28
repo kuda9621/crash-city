@@ -1,0 +1,17 @@
+{
+  "name": "crash-city",
+  "version": "1.0.0",
+  "description": "AI-assisted Multiplayer Car Game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "bad-words": "^3.0.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
