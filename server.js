@@ -13,13 +13,13 @@ let buildings = [];
 let buildingBBs = []; 
 let highScores = []; 
 
-// [최적화] Grid 시스템 설정
+// 맵을 격자(Grid)로 나누기 위한 설정
 const CELL_SIZE = 200; 
 let grid = {}; 
 
-// [설정] 봇 절대 상한선
+// 봇 관리 설정
 const MAX_BOTS = 50; 
-const DELETE_DIST = 300; // 거리가 300 넘으면 삭제 (화면 밖으로 나가면 리스폰 유도)
+const DELETE_DIST = 300; 
 const DELETE_DIST_SQ = DELETE_DIST * DELETE_DIST; 
 
 const adjectives = ["Angry", "Mad", "Crazy", "Wild", "Killer", "Dark", "Iron", "Brutal", "Fast", "Hyper"];
@@ -32,6 +32,7 @@ function generateBotName() {
     return `${adj}${noun}${num}`;
 }
 
+// 맵에 건물 랜덤 배치
 function generateMap() {
     const citySize = 25; 
     const unitSize = 40;
@@ -52,6 +53,7 @@ function generateMap() {
 
             buildings.push({ x: posX, y: h/2, z: posZ, w: w, h: h, d: d });
             
+            // 건물 충돌 박스 저장
             buildingBBs.push({ 
                 minX: posX - w/2 + 0.5,
                 maxX: posX + w/2 - 0.5, 
@@ -63,6 +65,7 @@ function generateMap() {
 }
 generateMap();
 
+// 봇 생성 함수
 function createBot(id, spawnX, spawnZ) {
     const cW = 4 + Math.random();
     const cH = 2 + Math.random();
@@ -86,6 +89,7 @@ function createBot(id, spawnX, spawnZ) {
     };
 }
 
+// 랭킹 업데이트
 function updateRankings(name, survivalTimeMs) {
     highScores.push({ name: name, time: survivalTimeMs });
     highScores.sort((a, b) => b.time - a.time);
@@ -93,6 +97,7 @@ function updateRankings(name, survivalTimeMs) {
     io.emit('updateRankings', highScores);
 }
 
+// 데미지 처리 및 튕겨내기
 function handleDamage(playerId, sourceAngle) {
     const p = players[playerId];
     if (!p || p.isDead) return;
@@ -116,21 +121,25 @@ function handleDamage(playerId, sourceAngle) {
     }
 }
 
+// 좌표를 그리드 키로 변환
 function getGridKey(x, z) {
     return `${Math.floor(x / CELL_SIZE)}_${Math.floor(z / CELL_SIZE)}`;
 }
 
+// 엔티티를 그리드에 등록
 function addToGrid(entity) {
     const key = getGridKey(entity.x, entity.z);
     if (!grid[key]) grid[key] = [];
     grid[key].push(entity);
 }
 
+// 내 주변 칸에 있는 엔티티만 가져오기
 function getNearbyEntities(x, z) {
     let entities = [];
     const cellX = Math.floor(x / CELL_SIZE);
     const cellZ = Math.floor(z / CELL_SIZE);
 
+    // 주변 9칸 검사
     for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
             const key = `${cellX + i}_${cellZ + j}`;
@@ -191,16 +200,17 @@ io.on('connection', (socket) => {
     });
 });
 
+// 게임 루프 (30프레임)
 setInterval(() => {
     const playerIds = Object.keys(players);
     let botIds = Object.keys(bots);
     
-    // 1. 그리드 업데이트
+    // 매 프레임마다 그리드 초기화하고 다시 넣음
     grid = {};
     playerIds.forEach(id => { if (!players[id].isDead) addToGrid(players[id]); });
     botIds.forEach(id => { if (!bots[id].isDead) addToGrid(bots[id]); });
 
-    // [복구됨] 2. 멀리 간 봇 삭제 (재활용을 위해 필수)
+    // 유저랑 너무 멀어진 봇 삭제
     let activeBots = [];
     botIds.forEach(bid => {
         const bot = bots[bid];
@@ -218,7 +228,6 @@ setInterval(() => {
             }
         });
 
-        // 유저가 있는데 거리가 너무 멀면 삭제
         if (playerIds.length > 0 && minSq > DELETE_DIST_SQ) {
             delete bots[bid];
             io.emit('removePlayer', bid);
@@ -226,9 +235,9 @@ setInterval(() => {
             activeBots.push(bid);
         }
     });
-    botIds = activeBots; // 삭제 후 남은 봇 목록 갱신
+    botIds = activeBots; 
 
-    // 3. 봇 수량 조절 및 스폰
+    // 봇 숫자 유지 (삭제되면 새로 스폰)
     let desiredCount = playerIds.length + 3;
     if (desiredCount > MAX_BOTS) desiredCount = MAX_BOTS;
     if (playerIds.length === 0) desiredCount = 0;
@@ -252,16 +261,17 @@ setInterval(() => {
         io.emit('removePlayer', removeId);
     }
 
-    // 4. AI 로직
+    // 봇 이동 및 충돌 처리
     Object.values(bots).forEach(bot => {
         if(bot.isDead) return;
 
         if (bot.stunTimer > 0) {
             bot.stunTimer--; 
-            bot.speed *= 0.8; // 스턴 시 속도 감속 강화
+            bot.speed *= 0.8; 
         } else {
             let closestSq = 999999999;
             let targetPlayer = null;
+            // 전체 루프 안 돌고 근처 엔티티만 가져옴
             const nearbyEntities = getNearbyEntities(bot.x, bot.z);
 
             nearbyEntities.forEach(entity => {
@@ -281,9 +291,9 @@ setInterval(() => {
                  while (diff > Math.PI) diff -= Math.PI * 2;
                  while (diff < -Math.PI) diff += Math.PI * 2;
                  bot.rotation += diff * 0.3; 
-                 bot.speed = 1.2; 
+                 bot.speed = 1.7; 
             } else {
-                bot.speed = 0.4; 
+                bot.speed = 0.7; 
                 bot.changeDirTimer--;
                 if (bot.changeDirTimer <= 0) {
                     bot.rotation += (Math.random() - 0.5); 
@@ -307,6 +317,7 @@ setInterval(() => {
         }
 
         if (!crashed) {
+            // 충돌 체크도 근처 엔티티랑만 함
             const checkList = getNearbyEntities(nextX, nextZ); 
             for (let entity of checkList) {
                 if (entity.id === bot.id || entity.isDead) continue;
@@ -316,7 +327,7 @@ setInterval(() => {
                 if (dz > 1000) dz = 2000 - dz;
                 const sq = dx*dx + dz*dz;
                 
-                // [수정 완료] 히트박스 거리 25 적용
+                // 거리 5만큼 가까워지면 충돌
                 if (sq < 25) { 
                     crashed = true;
                     if (players[entity.id]) { hitUser = true; hitEntityId = entity.id; }
@@ -326,12 +337,10 @@ setInterval(() => {
         }
 
         if (crashed) {
-            // [수정 완료] 건물에 박으면 멍때리는 문제 해결
-            bot.speed = -1.5; // 강력한 후진
-            bot.stunTimer = 30; // 잠시 방향 전환 시간 벌기
-            bot.rotation += Math.PI + (Math.random() - 0.5); // 뒤로 돌면서 살짝 비틀기 (탈출 확률 증가)
+            bot.speed = -1.5; 
+            bot.stunTimer = 30; 
+            bot.rotation += Math.PI + (Math.random() - 0.5); 
             
-            // 위치 강제 보정 (벽에서 튕겨 나오게)
             bot.x -= Math.sin(bot.rotation) * 5;
             bot.z -= Math.cos(bot.rotation) * 5;
 
