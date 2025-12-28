@@ -14,12 +14,12 @@ let buildingBBs = [];
 let highScores = []; 
 
 // [최적화] Grid 시스템 설정
-const CELL_SIZE = 200; // 격자 하나의 크기 (200x200)
-let grid = {}; // 공간 분할 맵
+const CELL_SIZE = 200; 
+let grid = {}; 
 
-// [설정] 봇 절대 상한선 (최적화되었으므로 조금 늘려도 버팁니다)
+// [설정] 봇 절대 상한선
 const MAX_BOTS = 50; 
-const DELETE_DIST = 250; 
+const DELETE_DIST = 300; // 거리가 300 넘으면 삭제 (화면 밖으로 나가면 리스폰 유도)
 const DELETE_DIST_SQ = DELETE_DIST * DELETE_DIST; 
 
 const adjectives = ["Angry", "Mad", "Crazy", "Wild", "Killer", "Dark", "Iron", "Brutal", "Fast", "Hyper"];
@@ -116,7 +116,6 @@ function handleDamage(playerId, sourceAngle) {
     }
 }
 
-// [최적화 핵심] 그리드 헬퍼 함수들
 function getGridKey(x, z) {
     return `${Math.floor(x / CELL_SIZE)}_${Math.floor(z / CELL_SIZE)}`;
 }
@@ -127,7 +126,6 @@ function addToGrid(entity) {
     grid[key].push(entity);
 }
 
-// 주변 9개 칸(자기 자신 포함)에 있는 엔티티들만 가져오기
 function getNearbyEntities(x, z) {
     let entities = [];
     const cellX = Math.floor(x / CELL_SIZE);
@@ -197,16 +195,40 @@ setInterval(() => {
     const playerIds = Object.keys(players);
     let botIds = Object.keys(bots);
     
-    // [최적화 1] 매 프레임마다 그리드 초기화 및 재구축
+    // 1. 그리드 업데이트
     grid = {};
-    playerIds.forEach(id => {
-        if (!players[id].isDead) addToGrid(players[id]);
-    });
-    botIds.forEach(id => {
-        if (!bots[id].isDead) addToGrid(bots[id]);
-    });
+    playerIds.forEach(id => { if (!players[id].isDead) addToGrid(players[id]); });
+    botIds.forEach(id => { if (!bots[id].isDead) addToGrid(bots[id]); });
 
-    // 봇 생성/제거 로직 (수량 조절)
+    // [복구됨] 2. 멀리 간 봇 삭제 (재활용을 위해 필수)
+    let activeBots = [];
+    botIds.forEach(bid => {
+        const bot = bots[bid];
+        let minSq = 999999999;
+        
+        playerIds.forEach(pid => {
+            const p = players[pid];
+            if(!p.isDead) {
+                let dx = Math.abs(p.x - bot.x);
+                let dz = Math.abs(p.z - bot.z);
+                if (dx > 1000) dx = 2000 - dx;
+                if (dz > 1000) dz = 2000 - dz;
+                const sq = dx*dx + dz*dz;
+                if(sq < minSq) minSq = sq;
+            }
+        });
+
+        // 유저가 있는데 거리가 너무 멀면 삭제
+        if (playerIds.length > 0 && minSq > DELETE_DIST_SQ) {
+            delete bots[bid];
+            io.emit('removePlayer', bid);
+        } else {
+            activeBots.push(bid);
+        }
+    });
+    botIds = activeBots; // 삭제 후 남은 봇 목록 갱신
+
+    // 3. 봇 수량 조절 및 스폰
     let desiredCount = playerIds.length + 3;
     if (desiredCount > MAX_BOTS) desiredCount = MAX_BOTS;
     if (playerIds.length === 0) desiredCount = 0;
@@ -215,7 +237,6 @@ setInterval(() => {
         const newBotId = 'bot_' + Date.now() + Math.random();
         let spawnX = 0, spawnZ = 0;
         if (playerIds.length > 0) {
-            // [최적화] 랜덤 유저 주변에 스폰하되 너무 멀지 않게
             const targetP = players[playerIds[Math.floor(Math.random() * playerIds.length)]];
             const randomAngle = Math.random() * Math.PI * 2; 
             const spawnDist = 80 + Math.random() * 40; 
@@ -224,34 +245,26 @@ setInterval(() => {
         }
         createBot(newBotId, spawnX, spawnZ);
         io.emit('newPlayer', { id: newBotId, playerInfo: bots[newBotId] });
-        addToGrid(bots[newBotId]); // 새로 만든 봇도 그리드에 등록
+        addToGrid(bots[newBotId]);
     } else if (botIds.length > desiredCount) { 
         const removeId = botIds[0];
         delete bots[removeId];
         io.emit('removePlayer', removeId);
     }
-    
-    // 봇이 너무 멀어지면 삭제하는 로직 (플레이어 기준)
-    // [최적화] 이 부분은 빈번하지 않게 가끔 실행하거나, 기존 로직 유지 (성능 영향 적음)
-    // 여기서는 생략하고 유지합니다.
 
-    // 3. AI 움직임 및 충돌 처리
+    // 4. AI 로직
     Object.values(bots).forEach(bot => {
         if(bot.isDead) return;
 
         if (bot.stunTimer > 0) {
             bot.stunTimer--; 
-            bot.speed *= 0.9; 
+            bot.speed *= 0.8; // 스턴 시 속도 감속 강화
         } else {
-            // [최적화 2] 전체 유저 대신 근처 유저만 탐색하여 타겟 설정
             let closestSq = 999999999;
             let targetPlayer = null;
-            
-            // 근처 Grid에 있는 유저만 가져옴 (성능 핵심)
             const nearbyEntities = getNearbyEntities(bot.x, bot.z);
 
             nearbyEntities.forEach(entity => {
-                // 플레이어이면서 살아있는 경우만 타겟팅
                 if (players[entity.id] && !entity.isDead) { 
                     let dx = Math.abs(entity.x - bot.x);
                     let dz = Math.abs(entity.z - bot.z);
@@ -286,7 +299,7 @@ setInterval(() => {
         let hitUser = false;
         let hitEntityId = null;
 
-        // 건물 충돌 (기존 유지)
+        // 건물 충돌 체크
         for(let bb of buildingBBs) {
             if (nextX > bb.minX - 1 && nextX < bb.maxX + 1 && nextZ > bb.minZ - 1 && nextZ < bb.maxZ + 1) {
                 crashed = true; break;
@@ -294,11 +307,7 @@ setInterval(() => {
         }
 
         if (!crashed) {
-            // [최적화 3] 충돌 검사도 '근처 엔티티'하고만 수행 (성능 핵심)
-            // 위에서 구한 nearbyEntities를 재사용하거나, 이동했으니 다시 구할 수도 있음.
-            // 여기선 이동 전 위치 기준 근처도 충분히 겹치므로 재사용 (미세 최적화)
             const checkList = getNearbyEntities(nextX, nextZ); 
-
             for (let entity of checkList) {
                 if (entity.id === bot.id || entity.isDead) continue;
                 let dx = Math.abs(nextX - entity.x);
@@ -307,6 +316,7 @@ setInterval(() => {
                 if (dz > 1000) dz = 2000 - dz;
                 const sq = dx*dx + dz*dz;
                 
+                // [수정 완료] 히트박스 거리 25 적용
                 if (sq < 25) { 
                     crashed = true;
                     if (players[entity.id]) { hitUser = true; hitEntityId = entity.id; }
@@ -316,10 +326,14 @@ setInterval(() => {
         }
 
         if (crashed) {
-            bot.speed *= -0.5; 
-            bot.stunTimer = 20; 
-            bot.x -= Math.sin(bot.rotation) * 4;
-            bot.z -= Math.cos(bot.rotation) * 4;
+            // [수정 완료] 건물에 박으면 멍때리는 문제 해결
+            bot.speed = -1.5; // 강력한 후진
+            bot.stunTimer = 30; // 잠시 방향 전환 시간 벌기
+            bot.rotation += Math.PI + (Math.random() - 0.5); // 뒤로 돌면서 살짝 비틀기 (탈출 확률 증가)
+            
+            // 위치 강제 보정 (벽에서 튕겨 나오게)
+            bot.x -= Math.sin(bot.rotation) * 5;
+            bot.z -= Math.cos(bot.rotation) * 5;
 
             if (hitUser) {
                 handleDamage(hitEntityId, bot.rotation);
