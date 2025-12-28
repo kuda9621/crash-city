@@ -307,7 +307,7 @@ setInterval(() => {
                 if (dz > 1000) dz = 2000 - dz;
                 const sq = dx*dx + dz*dz;
                 
-                if (sq < 64) { 
+                if (sq < 25) { 
                     crashed = true;
                     if (players[entity.id]) { hitUser = true; hitEntityId = entity.id; }
                     break;
