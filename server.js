@@ -291,9 +291,9 @@ setInterval(() => {
                  while (diff > Math.PI) diff -= Math.PI * 2;
                  while (diff < -Math.PI) diff += Math.PI * 2;
                  bot.rotation += diff * 0.3; 
-                 bot.speed = 1.7; 
+                 bot.speed = 1.6; 
             } else {
-                bot.speed = 0.7; 
+                bot.speed = 0.6; 
                 bot.changeDirTimer--;
                 if (bot.changeDirTimer <= 0) {
                     bot.rotation += (Math.random() - 0.5); 
