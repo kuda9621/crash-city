@@ -26,7 +26,6 @@
             z-index: 100;
         }
 
-        /* 로그인 화면 */
         #login-screen {
             background: white;
             z-index: 200;
@@ -98,7 +97,6 @@
             border-radius: 4px;
         }
 
-        /* 게임 오버 화면 */
         #game-over-screen {
             background: rgba(0, 0, 0, 0.85);
             display: none;
@@ -132,7 +130,6 @@
                 color: #ff3333;
             }
 
-        /* HUD */
         #ui-layer {
             position: absolute;
             top: 20px;
@@ -298,18 +295,14 @@
         const MAP_SIZE = 2000;
         const MAP_HALF = 1000;
 
-        // 사운드 로드
+        // 사운드 설정
         const sfxEngine = new Audio('sounds/engine.mp3');
         sfxEngine.loop = true;
         sfxEngine.volume = 0.3;
-
         const sfxBoost = new Audio('sounds/boost.mp3');
         sfxBoost.volume = 0.6;
-
         const sfxCrash = new Audio('sounds/crash.mp3');
         sfxCrash.volume = 0.8;
-
-        // [신규] 문 열리는 소리 로드
         const sfxDoor = new Audio('sounds/door_open.mp3');
         sfxDoor.volume = 1.0;
 
@@ -329,9 +322,8 @@
         socket.on('updateRankings', (highScores) => {
         const list = document.getElementById('rank-list');
         list.innerHTML = '';
-        if (highScores.length === 0) {
-        list.innerHTML = '<li>No Records Yet</li>';
-        } else {
+        if (highScores.length === 0) list.innerHTML = '<li>No Records Yet</li>';
+        else {
         highScores.forEach(score => {
         const li = document.createElement('li');
         const timeSec = (score.time / 1000).toFixed(2);
@@ -352,13 +344,9 @@
         if(!mapDataReceived) {
         alert("Loading map data... try again."); return;
         }
-
-        // [신규] 문 열리는 소리 재생 후 게임 화면으로 전환
-        sfxDoor.play().catch(e => console.log("Door sound failed: ", e));
-        sfxEngine.play().catch(e => console.log("Engine sound failed: ", e));
-
+        sfxDoor.play().catch(()=>{});
+        sfxEngine.play().catch(()=>{});
         document.getElementById('login-screen').style.display = 'none';
-
         socket.emit('joinGame', name);
         initGame();
         isGameRunning = true;
@@ -378,22 +366,30 @@
 
         function initGame() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
+        scene.background = new THREE.Color(0xffffff); // 배경색: 흰색
         scene.fog = new THREE.Fog(0xffffff, 800, 1500);
+
+        // 카메라 초기화
         camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 100, 100);
+        camera.lookAt(0, 0, 0);
+
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
+
         const light = new THREE.DirectionalLight(0xffffff, 0.8);
         light.position.set(100, 200, 100);
         light.castShadow = true;
         scene.add(light);
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
         floor = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshStandardMaterial({ color: 0xffffff }));
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
+
         const buildingMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
         if (window.serverBuildings) {
         const offsets = [{x:0, z:0}, {x:MAP_SIZE, z:0}, {x:-MAP_SIZE, z:0}, {x:0, z:MAP_SIZE}, {x:0, z:-MAP_SIZE}, {x:MAP_SIZE, z:MAP_SIZE}, {x:MAP_SIZE, z:-MAP_SIZE}, {x:-MAP_SIZE, z:MAP_SIZE}, {x:-MAP_SIZE, z:-MAP_SIZE}];
@@ -487,6 +483,9 @@
         socket.on('currentPlayers', (players) => {
         Object.keys(players).forEach(id => {
         const isMe = (id === socket.id);
+        // [안전장치] 서버에서 온 데이터가 NaN이면 무시
+        if (isNaN(players[id].x) || isNaN(players[id].z)) return;
+
         if (!otherPlayers[id] && !isMe) {
         const carObj = createCar(players[id].color, false, players[id].name, players[id].carSpec);
         otherPlayers[id] = carObj.mesh;
@@ -501,12 +500,18 @@
         myCar = carObj.mesh;
         myCar.body = carObj.bodyMesh;
         myCar.position.set(players[id].x, 0, players[id].z);
+        if(camera) {
+        camera.position.set(myCar.position.x, 10, myCar.position.z + 20);
+        camera.lookAt(myCar.position);
+        }
         }
         });
         });
 
         socket.on('newPlayer', (data) => {
         if(myCar && data.id === socket.id) return;
+        if (isNaN(data.playerInfo.x) || isNaN(data.playerInfo.z)) return;
+
         const carObj = createCar(data.playerInfo.color, false, data.playerInfo.name, data.playerInfo.carSpec);
         otherPlayers[data.id] = carObj.mesh;
         otherPlayers[data.id].body = carObj.bodyMesh;
@@ -518,10 +523,13 @@
 
         socket.on('playerMoved', (data) => {
         if(otherPlayers[data.id]) {
+        // [안전장치] 이동 데이터 NaN 체크
+        if (!isNaN(data.playerInfo.x) && !isNaN(data.playerInfo.z)) {
         const target = otherPlayers[data.id];
         target.targetX = data.playerInfo.x;
         target.targetZ = data.playerInfo.z;
         target.targetRot = data.playerInfo.rotation;
+        }
         }
         });
 
@@ -534,9 +542,7 @@
 
         socket.on('updateHealth', (data) => {
         if (data.id === socket.id) {
-        if (data.hp < document.getElementById('hp-bar').innerText.length) {
-        playCrashSound();
-        }
+        if (data.hp < document.getElementById('hp-bar').innerText.length) playCrashSound();
         let hearts = "";
         for(let i=0; i<data.hp; i++) hearts += "♥";
         document.getElementById('hp-bar').innerText = hearts;
@@ -545,9 +551,7 @@
         if(target && target.body) {
         target.body.material.color.setHex(0xff0000);
         setTimeout(() => {
-        if (target && target.body) {
-        target.body.material.color.setHex(target.body.userData.origColor);
-        }
+        if (target && target.body) target.body.material.color.setHex(target.body.userData.origColor);
         }, 200);
         }
         });
@@ -556,15 +560,18 @@
         if(myCar) {
         const pushX = Math.sin(data.angle) * data.force;
         const pushZ = Math.cos(data.angle) * data.force;
+
+        // [안전장치] 밀려나는 좌표가 NaN인지 체크
+        if (!isNaN(pushX) && !isNaN(pushZ)) {
         myCar.position.x += pushX;
         myCar.position.z += pushZ;
         myCar.position.y = 1;
-        setTimeout(() => myCar.position.y = 0, 200);
-        if (!myCarData.isStunned) {
-        myCarData.isStunned = true;
+        setTimeout(() => myCar.position.y = 0, 150);
+        }
+
+        if (!myCarData.isHit) {
         myCarData.isHit = true;
-        setTimeout(() => { myCarData.isStunned = false; }, 500);
-        setTimeout(() => { myCarData.isHit = false; }, 1000);
+        setTimeout(() => { myCarData.isHit = false; }, 500);
         }
         }
         });
@@ -590,168 +597,233 @@
 
         const keys = { w:false, a:false, s:false, d:false, space: false };
         window.addEventListener('keydown', e => {
-        if(e.code === 'Space') keys.space = true;
-        else keys[e.key] = true;
+        const code = e.code;
+        if (code === 'KeyW' || code === 'ArrowUp') keys.w = true;
+        if (code === 'KeyA' || code === 'ArrowLeft') keys.a = true;
+        if (code === 'KeyS' || code === 'ArrowDown') keys.s = true;
+        if (code === 'KeyD' || code === 'ArrowRight') keys.d = true;
+        if (code === 'Space') keys.space = true;
         });
         window.addEventListener('keyup', e => {
-        if(e.code === 'Space') keys.space = false;
-        else keys[e.key] = false;
+        const code = e.code;
+        if (code === 'KeyW' || code === 'ArrowUp') keys.w = false;
+        if (code === 'KeyA' || code === 'ArrowLeft') keys.a = false;
+        if (code === 'KeyS' || code === 'ArrowDown') keys.s = false;
+        if (code === 'KeyD' || code === 'ArrowRight') keys.d = false;
+        if (code === 'Space') keys.space = false;
         });
 
-        function checkCollision(tempPos) {
-        const min = new THREE.Vector3(tempPos.x - 1.8, 0, tempPos.z - 3.8);
-        const max = new THREE.Vector3(tempPos.x + 1.8, 5, tempPos.z + 3.8);
+        function checkBuildingCollision(tempPos) {
+        const min = new THREE.Vector3(tempPos.x - 1.0, 0, tempPos.z - 2.0);
+        const max = new THREE.Vector3(tempPos.x + 1.0, 5, tempPos.z + 2.0);
         myCarBB.set(min, max);
         for (let i = 0; i < buildingBBs.length; i++) {
         if (myCarBB.intersectsBox(buildingBBs[i])) return true;
         }
+        return false;
+        }
+
+        function checkEntityHit(tempPos) {
         for (let id in otherPlayers) {
         const other = otherPlayers[id];
         if (!other) continue;
-        let dx = Math.abs(tempPos.x - other.position.x);
-        let dz = Math.abs(tempPos.z - other.position.z);
-        if(dx > MAP_HALF) dx = MAP_SIZE - dx;
-        if(dz > MAP_HALF) dz = MAP_SIZE - dz;
-        const dist = Math.sqrt(dx*dx + dz*dz);
-        if (dist < 12) return true;
+        let dx = tempPos.x - other.position.x;
+        let dz = tempPos.z - other.position.z;
+        if(dx > MAP_HALF) dx -= MAP_SIZE;
+        else if(dx < -MAP_HALF) dx += MAP_SIZE;
+        if(dz > MAP_HALF) dz -= MAP_SIZE;
+        else if(dz < -MAP_HALF) dz += MAP_SIZE;
+
+        if (dx*dx + dz*dz < 60) return true;
         }
         return false;
         }
 
         function animate() {
-        requestAnimationFrame(animate);
-        for (let i = particles.length - 1; i >= 0; i--) {
-        let p = particles[i];
-        p.position.x += p.userData.velX;
-        p.position.y += p.userData.velY;
-        p.position.z += p.userData.velZ;
-        p.rotation.x += p.userData.rotX;
-        p.rotation.y += p.userData.rotY;
-        p.userData.velY -= 0.1;
-        if (p.position.y < 0) {
-        scene.remove(p);
-        particles.splice(i, 1);
-        }
-        }
-        if (isGameRunning && myCarData) {
-        const now = Date.now();
-        const boostBar = document.getElementById('boost-bar');
-        const boostText = document.getElementById('boost-text');
-        if (keys.space && myCarData.canDash && !myCarData.isStunned) {
-        myCarData.isDashing = true;
-        myCarData.canDash = false;
-        myCarData.dashEndTime = now + 500;
-        myCarData.dashCooldownTime = now + 5500;
+            requestAnimationFrame(animate);
+            // ... (파티클 등 기존 로직) ...
+            // [★ 중요: 자가 복구]
+            if (myCar && (isNaN(myCar.position.x) || isNaN(myCar.position.z) || isNaN(myCarData.speed))) {
+                myCar.position.set(0, 0, 0); myCarData.speed = 0;
+                if (camera) { camera.position.set(0, 100, 100); camera.lookAt(0, 0, 0); }
+            }
 
-        sfxBoost.currentTime = 0;
-        sfxBoost.play().catch(()=>{});
-        }
-        if (myCarData.isDashing && now > myCarData.dashEndTime) {
-        myCarData.isDashing = false;
-        }
-        if (!myCarData.canDash && now > myCarData.dashCooldownTime) {
-        myCarData.canDash = true;
-        }
-        if (myCarData.canDash) {
-        boostBar.style.width = '100%';
-        boostBar.style.backgroundColor = '#00aaff';
-        boostText.innerText = "BOOST READY (SPACE)";
-        boostText.style.color = "#00aaff";
-        } else if (myCarData.isDashing) {
-        boostBar.style.width = '100%';
-        boostBar.style.backgroundColor = '#ffcc00';
-        boostText.innerText = "BOOSTING!";
-        boostText.style.color = "#ffcc00";
-        } else {
-        const remaining = myCarData.dashCooldownTime - now;
-        const percent = 100 - (remaining / 5000 * 100);
-        boostBar.style.width = `${Math.max(0, percent)}%`;
-        boostBar.style.backgroundColor = '#555';
-        boostText.innerText = "RECHARGING...";
-        boostText.style.color = "#555";
-        }
-        }
-        if(myCar) {
-        for(let id in otherPlayers) {
-        let p = otherPlayers[id];
-        if(p.targetX !== undefined) {
-        let targetX = p.targetX;
-        let targetZ = p.targetZ;
-        const dx = targetX - myCar.position.x;
-        const dz = targetZ - myCar.position.z;
-        if (dx > MAP_HALF) targetX -= MAP_SIZE;
-        else if (dx < -MAP_HALF) targetX += MAP_SIZE;
-        if (dz > MAP_HALF) targetZ -= MAP_SIZE;
-        else if (dz < -MAP_HALF) targetZ += MAP_SIZE;
-        if (Math.abs(targetX - p.position.x) > MAP_HALF) {
-        if(targetX > p.position.x) p.position.x += MAP_SIZE;
-        else p.position.x -= MAP_SIZE;
-        }
-        if (Math.abs(targetZ - p.position.z) > MAP_HALF) {
-        if(targetZ > p.position.z) p.position.z += MAP_SIZE;
-        else p.position.z -= MAP_SIZE;
-        }
-        p.position.x += (targetX - p.position.x) * 0.1;
-        p.position.z += (targetZ - p.position.z) * 0.1;
-        p.rotation.y = p.targetRot;
-        }
-        }
-        }
-        if(!myCar || !isGameRunning) {
-        renderer.render(scene, camera);
-        return;
-        }
-        if (!myCarData.isStunned) {
-        let currentMaxSpeed = myCarData.isDashing ? 0.8 : 0.4;
-        if(keys.w) myCarData.speed = currentMaxSpeed;
-        else if(keys.s) myCarData.speed = -0.3;
-        else myCarData.speed *= 0.95;
-        let turnSpeed = myCarData.isDashing ? 0.03 : 0.05;
-        if(keys.a) myCarData.rot += turnSpeed;
-        if(keys.d) myCarData.rot -= turnSpeed;
-        } else {
-        myCarData.speed *= 0.95;
-        }
-        const nextX = myCar.position.x - Math.sin(myCarData.rot) * myCarData.speed;
-        const nextZ = myCar.position.z - Math.cos(myCarData.rot) * myCarData.speed;
-        if (checkCollision({ x: nextX, z: nextZ })) {
-        myCarData.speed = -myCarData.speed * 0.8;
-        if (!myCarData.isHit) {
-        socket.emit('playerHit');
-        myCarData.isHit = true;
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.position.x += p.userData.velX;
+                p.position.y += p.userData.velY;
+                p.position.z += p.userData.velZ;
+                p.rotation.x += p.userData.rotX;
+                p.rotation.y += p.userData.rotY;
+                p.userData.velY -= 0.1;
+                if (p.position.y < 0) {
+                    scene.remove(p);
+                    particles.splice(i, 1);
+                }
+            }
 
-        // 내가 박았을 때도 소리 재생
-        playCrashSound();
+            if (isGameRunning && myCarData) {
+                const now = Date.now();
+                const boostBar = document.getElementById('boost-bar');
+                const boostText = document.getElementById('boost-text');
+                
+                if (keys.space && myCarData.canDash && !myCarData.isStunned) {
+                    myCarData.isDashing = true;
+                    myCarData.canDash = false;
+                    myCarData.dashEndTime = now + 500;
+                    myCarData.dashCooldownTime = now + 5000;
+                    sfxBoost.currentTime = 0;
+                    sfxBoost.play().catch(()=>{});
+                }
+                if (myCarData.isDashing && now > myCarData.dashEndTime) myCarData.isDashing = false;
+                if (!myCarData.canDash && now > myCarData.dashCooldownTime) myCarData.canDash = true;
+                
+                if (myCarData.canDash) {
+                    boostBar.style.width = '100%';
+                    boostBar.style.backgroundColor = '#00aaff';
+                    boostText.innerText = "BOOST READY (SPACE)";
+                    boostText.style.color = "#00aaff";
+                } else if (myCarData.isDashing) {
+                    boostBar.style.width = '100%';
+                    boostBar.style.backgroundColor = '#ffcc00';
+                    boostText.innerText = "BOOSTING!";
+                    boostText.style.color = "#ffcc00";
+                } else {
+                    const remaining = myCarData.dashCooldownTime - now;
+                    const percent = 100 - (remaining / 5000 * 100);
+                    boostBar.style.width = `${Math.max(0, percent)}%`;
+                    boostBar.style.backgroundColor = '#555';
+                    boostText.innerText = "RECHARGING...";
+                    boostText.style.color = "#555";
+                }
+            }
 
-        setTimeout(() => { myCarData.isHit = false; }, 500);
-        }
-        } else {
-        myCar.position.x = nextX;
-        myCar.position.z = nextZ;
-        if (myCar.position.x > MAP_HALF) myCar.position.x -= MAP_SIZE;
-        else if (myCar.position.x < -MAP_HALF) myCar.position.x += MAP_SIZE;
-        if (myCar.position.z > MAP_HALF) myCar.position.z -= MAP_SIZE;
-        else if (myCar.position.z < -MAP_HALF) myCar.position.z += MAP_SIZE;
-        if (floor) {
-        floor.position.x = myCar.position.x;
-        floor.position.z = myCar.position.z;
-        }
-        }
-        myCar.rotation.y = myCarData.rot;
-        camera.position.set(
-        myCar.position.x + Math.sin(myCarData.rot + Math.PI) * -20,
-        10,
-        myCar.position.z + Math.cos(myCarData.rot + Math.PI) * -20
-        );
-        camera.lookAt(myCar.position);
-        socket.emit('playerMovement', {
-        x: myCar.position.x,
-        z: myCar.position.z,
-        rotation: myCarData.rot
-        });
-        renderer.render(scene, camera);
+            if(myCar) {
+                for(let id in otherPlayers) {
+                    let p = otherPlayers[id];
+                    if(p.targetX !== undefined) {
+                        let targetX = p.targetX;
+                        let targetZ = p.targetZ;
+                        const dx = targetX - myCar.position.x;
+                        const dz = targetZ - myCar.position.z;
+                        if (dx > MAP_HALF) targetX -= MAP_SIZE;
+                        else if (dx < -MAP_HALF) targetX += MAP_SIZE;
+                        if (dz > MAP_HALF) targetZ -= MAP_SIZE;
+                        else if (dz < -MAP_HALF) targetZ += MAP_SIZE;
+                        
+                        if (Math.abs(targetX - p.position.x) > MAP_HALF) {
+                            if(targetX > p.position.x) p.position.x += MAP_SIZE;
+                            else p.position.x -= MAP_SIZE;
+                        }
+                        if (Math.abs(targetZ - p.position.z) > MAP_HALF) {
+                            if(targetZ > p.position.z) p.position.z += MAP_SIZE;
+                            else p.position.z -= MAP_SIZE;
+                        }
+                        p.position.x += (targetX - p.position.x) * 0.1;
+                        p.position.z += (targetZ - p.position.z) * 0.1;
+                        p.rotation.y = p.targetRot;
+                    }
+                }
+            }
+
+            if(!myCar || !isGameRunning) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            let currentMaxSpeed = myCarData.isDashing ? 0.8 : 0.4;
+            if(keys.w) myCarData.speed = currentMaxSpeed;
+            else if(keys.s) myCarData.speed = -0.3;
+            else myCarData.speed *= 0.95;
+            
+            let turnSpeed = myCarData.isDashing ? 0.03 : 0.05;
+            if(keys.a) myCarData.rot += turnSpeed;
+            if(keys.d) myCarData.rot -= turnSpeed;
+
+            const moveStepX = Math.sin(myCarData.rot) * myCarData.speed;
+            const moveStepZ = Math.cos(myCarData.rot) * myCarData.speed;
+
+            // X축 이동
+            const nextPosX = { x: myCar.position.x + moveStepX, z: myCar.position.z };
+            if (!checkBuildingCollision(nextPosX)) {
+                myCar.position.x = nextPosX.x;
+            } else {
+                myCarData.speed *= 0.9;
+                // [수정] 건물 데미지 처리
+                if (!myCarData.isHit) {
+                    socket.emit('playerHit');
+                    myCarData.isHit = true;
+                    playCrashSound();
+                    setTimeout(() => { myCarData.isHit = false; }, 500);
+                }
+            }
+
+            // Z축 이동
+            const nextPosZ = { x: myCar.position.x, z: myCar.position.z + moveStepZ };
+            if (!checkBuildingCollision(nextPosZ)) {
+                myCar.position.z = nextPosZ.z;
+            } else {
+                myCarData.speed *= 0.9;
+                // [수정] 건물 데미지 처리
+                if (!myCarData.isHit) {
+                    socket.emit('playerHit');
+                    myCarData.isHit = true;
+                    playCrashSound();
+                    setTimeout(() => { myCarData.isHit = false; }, 500);
+                }
+            }
+
+            // 봇 충돌 (이벤트용)
+            if (checkEntityHit({x: myCar.position.x, z: myCar.position.z})) {
+                if (!myCarData.isHit) {
+                    socket.emit('playerHit');
+                    myCarData.isHit = true;
+                    playCrashSound();
+                    setTimeout(() => { myCarData.isHit = false; }, 500);
+                }
+            }
+
+            // 맵 루프
+            if (myCar.position.x > MAP_HALF) {
+                myCar.position.x -= MAP_SIZE;
+                camera.position.x -= MAP_SIZE;
+            } else if (myCar.position.x < -MAP_HALF) {
+                myCar.position.x += MAP_SIZE;
+                camera.position.x += MAP_SIZE;
+            }
+            if (myCar.position.z > MAP_HALF) {
+                myCar.position.z -= MAP_SIZE;
+                camera.position.z -= MAP_SIZE;
+            } else if (myCar.position.z < -MAP_HALF) {
+                myCar.position.z += MAP_SIZE;
+                camera.position.z += MAP_SIZE;
+            }
+
+            if (floor) {
+                floor.position.x = myCar.position.x;
+                floor.position.z = myCar.position.z;
+            }
+            
+            myCar.rotation.y = myCarData.rot;
+
+            if (camera && !isNaN(myCar.position.x)) {
+                const idealOffset = new THREE.Vector3(0, 10, -20);
+                idealOffset.applyAxisAngle(new THREE.Vector3(0, 1, 0), myCarData.rot);
+                idealOffset.add(myCar.position);
+                camera.position.lerp(idealOffset, 0.05);
+                camera.lookAt(myCar.position);
+            }
+
+            socket.emit('playerMovement', {
+                x: myCar.position.x,
+                z: myCar.position.z,
+                rotation: myCarData.rot
+            });
+
+            renderer.render(scene, camera);
         }
         animate();
+
         window.addEventListener('resize', () => {
         if(camera) {
         camera.aspect = window.innerWidth / window.innerHeight;
